@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  birthDate    DateTime
+  nationality  String
+  email        String   @unique
+  password     String
+  role         String   @default("student")
+  photo        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  students     Student[]
+  appointments Appointment[] @relation("TeacherAppointments")
+  studentAppointments Appointment[] @relation("StudentAppointments")
+  resources    Resource[] @relation("TeacherResources")
+  studentResources Resource[] @relation("StudentResources")
+  sentMessages Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  paymentsReceived Payment[] @relation("TeacherPayments")
+  paymentsMade Payment[] @relation("StudentPayments")
+}
+
+model Student {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String?
+  phone        String?
+  birthDate    DateTime?
+  notes        String?
+  teacherId    Int
+  teacher      User     @relation(fields: [teacherId], references: [id])
+  appointments Appointment[]
+  payments    Payment[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Appointment {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  dateTime     DateTime
+  duration     Int      @default(60)
+  studentId    Int?
+  student      Student? @relation(fields: [studentId], references: [id])
+  studentUserId Int?
+  studentUser   User?   @relation("StudentAppointments", fields: [studentUserId], references: [id])
+  teacherId    Int
+  teacher      User     @relation("TeacherAppointments", fields: [teacherId], references: [id])
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Resource {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String?
+  type         String
+  url          String?
+  filePath     String?
+  teacherId    Int
+  teacher      User     @relation("TeacherResources", fields: [teacherId], references: [id])
+  studentUserId Int?
+  studentUser   User?   @relation("StudentResources", fields: [studentUserId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Message {
+  id           Int      @id @default(autoincrement())
+  content      String
+  senderId     Int
+  sender       User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId   Int
+  receiver     User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  read         Boolean  @default(false)
+  reaction     String?
+  createdAt    DateTime @default(now())
+}
+
+model Payment {
+  id           Int      @id @default(autoincrement())
+  amount       Float
+  description  String?
+  status       String   @default("pending")
+  studentId    Int?
+  student      Student? @relation(fields: [studentId], references: [id])
+  teacherId    Int
+  teacher      User     @relation("TeacherPayments", fields: [teacherId], references: [id])
+  studentUserId Int?
+  studentUser   User?   @relation("StudentPayments", fields: [studentUserId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
