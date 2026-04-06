@@ -325,7 +325,27 @@
                         msg.senderId === user?.id ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-900'
                       ]"
                     >
-                      <p>{{ msg.content }}</p>
+                      <div v-if="msg.audioUrl" class="mb-1">
+                        <div class="flex items-center gap-2 bg-black/20 rounded-full px-2 py-1 w-fit">
+                          <button @click.stop="toggleAudio($event)" class="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center hover:bg-white/40 transition-colors" :data-audio="msg.audioUrl">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 5v14l11-7z"/>
+                            </svg>
+                          </button>
+                          <div class="w-24">
+                            <div class="h-1 bg-white/30 rounded-full overflow-hidden">
+                              <div class="audio-progress h-full bg-white rounded-full" style="width: 0%" :data-audio="msg.audioUrl"></div>
+                            </div>
+                          </div>
+                          <span class="text-xs text-white/70 audio-duration" :data-audio="msg.audioUrl">0:00</span>
+                          <a :href="msg.audioUrl" download @click.stop class="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white/90">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                      <p v-if="msg.content">{{ msg.content }}</p>
                       <div class="flex items-center gap-2 mt-1">
                         <span v-if="msg.reaction" class="text-lg">{{ msg.reaction }}</span>
                         <p :class="['text-xs', msg.senderId === user?.id ? 'text-green-100' : 'text-gray-500']">{{ formatDate(msg.createdAt) }}</p>
@@ -345,9 +365,15 @@
               </div>
               <div class="p-4 border-t border-gray-200">
                 <div class="flex gap-2">
+                  <button @click="toggleRecording" :class="['p-2 rounded-lg transition-colors', isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 text-gray-600 hover:bg-gray-300']">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
                   <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Digite sua mensagem..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" />
                   <button @click="sendMessage" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Enviar</button>
                 </div>
+                <p v-if="isRecording" class="text-sm text-red-500 mt-2 animate-pulse">Gravando áudio...</p>
               </div>
             </div>
             <div v-else class="flex-1 flex items-center justify-center text-gray-500">
@@ -391,8 +417,21 @@
               </select>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">URL</label>
-              <input v-model="newResource.url" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">URL ou Arquivo</label>
+              <div class="space-y-2">
+                <input v-model="newResource.url" placeholder="https://..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" />
+                <div class="flex items-center gap-2">
+                  <span class="text-sm text-gray-500">ou</span>
+                  <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span class="text-sm text-gray-600">Escolher arquivo</span>
+                    <input type="file" class="hidden" @change="handleFileSelect" />
+                  </label>
+                  <span v-if="selectedFile" class="text-sm text-green-600">{{ selectedFile.name }}</span>
+                </div>
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Enviar para (opcional)</label>
@@ -414,7 +453,12 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" v-if="resources.length > 0">
-          <div v-for="res in resources" :key="res.id" class="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md hover:border-green-200 transition-all">
+          <div v-for="res in resources" :key="res.id" class="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md hover:border-green-200 transition-all group relative">
+            <button @click="deleteResource(res.id)" class="absolute top-3 right-3 p-1 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity" title="Excluir">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
             <div class="flex items-center gap-3 mb-3">
               <span :class="['px-3 py-1 rounded-full text-xs font-medium', res.type === 'pdf' ? 'bg-red-100 text-red-700' : res.type === 'video' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700']">
                 {{ res.type.toUpperCase() }}
@@ -437,6 +481,17 @@
         </div>
       </div>
     </main>
+
+    <div v-if="showDeleteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showDeleteModal = false">
+      <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Excluir Material</h3>
+        <p class="text-gray-600 mb-6">Tem certeza que deseja excluir este material?</p>
+        <div class="flex gap-3 justify-end">
+          <button @click="showDeleteModal = false" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancelar</button>
+          <button @click="confirmDelete" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Excluir</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -444,6 +499,7 @@
 const activeSection = ref('appointments')
 const user = ref(null)
 const photoInput = ref(null)
+const selectedFile = ref(null)
 
 const AppointmentsIcon = { template: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' }
 const StudentsIcon = { template: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>' }
@@ -468,10 +524,15 @@ const selectedChatPartner = ref(null)
 const chatMessages = ref([])
 const newMessage = ref('')
 const selectedMessage = ref(null)
+const isRecording = ref(false)
+const mediaRecorder = ref(null)
+const audioChunks = ref([])
 const emojis = ['👍', '❤️', '😄', '😢', '😮', '🙏']
 
 const showAppointmentForm = ref(false)
 const showResourceForm = ref(false)
+const showDeleteModal = ref(false)
+const resourceToDelete = ref(null)
 const editProfile = ref({ name: '', email: '', password: '', birthDate: '', nationality: '' })
 const showPassword = ref(false)
 const newAppointment = ref({ title: '', description: '', dateTime: '', duration: 60, studentUserId: '' })
@@ -592,32 +653,192 @@ const deleteMessage = async (id) => {
   await loadChat()
 }
 
-const sendMessage = async () => {
-  if (!newMessage.value.trim() || !selectedChatPartner.value) return
+const sendMessage = async (audioUrl = null) => {
+  if (!newMessage.value.trim() && !audioUrl) return
+  if (!selectedChatPartner.value) return
+  
+  const payload = {
+    content: newMessage.value,
+    audioUrl,
+    senderId: user.value.id,
+    receiverId: selectedChatPartner.value.id
+  }
+  console.log('Sending message:', payload)
+  
   await $fetch('/api/messages', {
     method: 'POST',
-    body: {
-      content: newMessage.value,
-      senderId: user.value.id,
-      receiverId: selectedChatPartner.value.id
-    }
+    body: payload
   })
   newMessage.value = ''
   await loadChat()
 }
 
+const toggleRecording = async () => {
+  if (isRecording.value) {
+    mediaRecorder.value.stop()
+    isRecording.value = false
+  } else {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRecorder.value = new MediaRecorder(stream)
+      audioChunks.value = []
+      
+      mediaRecorder.value.ondataavailable = (e) => {
+        audioChunks.value.push(e.data)
+      }
+      
+      mediaRecorder.value.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
+        const formData = new FormData()
+        formData.append('file', audioBlob, 'audio.webm')
+        
+        const res = await $fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (res.success) {
+          await sendMessage(res.url)
+        }
+        
+        stream.getTracks().forEach(track => track.stop())
+      }
+      
+      mediaRecorder.value.start()
+      isRecording.value = true
+    } catch (err) {
+      console.error('Erro ao acessar microfone:', err)
+      alert('Não foi possível acessar o microfone')
+    }
+  }
+}
+
+const activeAudio = ref(null)
+
+const toggleAudio = (event) => {
+  const audioUrl = event.currentTarget.getAttribute('data-audio')
+  const button = event.currentTarget
+  const container = event.currentTarget.closest('.mb-1')
+  
+  if (!activeAudio.value) {
+    const audio = new Audio(audioUrl)
+    activeAudio.value = { audio, button, container, url: audioUrl }
+    
+    audio.addEventListener('loadedmetadata', () => {
+      const durationSpan = container.querySelector('.audio-duration')
+      const minutes = Math.floor(audio.duration / 60)
+      const seconds = Math.floor(audio.duration % 60)
+      durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`
+    })
+    
+    audio.addEventListener('timeupdate', () => {
+      const progress = container.querySelector('.audio-progress')
+      const percent = (audio.currentTime / audio.duration) * 100
+      progress.style.width = `${percent}%`
+    })
+    
+    audio.addEventListener('ended', () => {
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+      container.querySelector('.audio-progress').style.width = '0%'
+    })
+    
+    audio.play()
+    button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+  } else if (activeAudio.value.url === audioUrl) {
+    const audio = activeAudio.value.audio
+    if (audio.paused) {
+      audio.play()
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+    } else {
+      audio.pause()
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+    }
+  } else {
+    activeAudio.value.audio.pause()
+    
+    const audio = new Audio(audioUrl)
+    activeAudio.value = { audio, button, container, url: audioUrl }
+    
+    audio.addEventListener('loadedmetadata', () => {
+      const durationSpan = container.querySelector('.audio-duration')
+      const minutes = Math.floor(audio.duration / 60)
+      const seconds = Math.floor(audio.duration % 60)
+      durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`
+    })
+    
+    audio.addEventListener('timeupdate', () => {
+      const progress = container.querySelector('.audio-progress')
+      const percent = (audio.currentTime / audio.duration) * 100
+      progress.style.width = `${percent}%`
+    })
+    
+    audio.addEventListener('ended', () => {
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+      container.querySelector('.audio-progress').style.width = '0%'
+    })
+    
+    audio.play()
+    button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+  }
+}
+
 const createResource = async () => {
   if (!newResource.value.title) return
+  
+  let resourceData = {
+    ...newResource.value,
+    teacherId: user.value.id
+  }
+  
+  if (selectedFile.value) {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    
+    const uploadRes = await $fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    })
+    
+    if (uploadRes.success) {
+      resourceData.url = uploadRes.url
+    }
+  }
+  
   await $fetch('/api/resources', {
     method: 'POST',
-    body: {
-      ...newResource.value,
-      teacherId: user.value.id
-    }
+    body: resourceData
   })
+  
   newResource.value = { title: '', description: '', type: 'pdf', url: '', studentUserId: '' }
+  selectedFile.value = null
   showResourceForm.value = false
   await loadData()
+}
+
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    selectedFile.value = file
+  }
+}
+
+const deleteResource = (id) => {
+  console.log('Delete clicked for id:', id)
+  resourceToDelete.value = id
+  showDeleteModal.value = true
+}
+
+const confirmDelete = async () => {
+  console.log('Confirming delete for id:', resourceToDelete.value)
+  try {
+    await $fetch(`/api/resources/${resourceToDelete.value}`, { method: 'DELETE' })
+    showDeleteModal.value = false
+    resourceToDelete.value = null
+    await loadData()
+  } catch (error) {
+    console.error('Delete error:', error)
+    alert('Erro ao excluir material')
+  }
 }
 
 const handleLogout = async () => {

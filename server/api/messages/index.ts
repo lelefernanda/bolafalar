@@ -24,15 +24,30 @@ export default defineEventHandler(async (event) => {
 
   if (event.method === 'POST') {
     const body = await readBody(event)
-    const { content, senderId, receiverId } = body
+    let { content, audioUrl, senderId, receiverId } = body
+
+    if (typeof audioUrl === 'object' && audioUrl !== null) {
+      audioUrl = null
+    }
+    
+    if (typeof audioUrl === 'string') {
+      audioUrl = audioUrl
+    } else {
+      audioUrl = null
+    }
+
+    console.log('Creating message with:', { content, audioUrl, senderId, receiverId })
 
     const message = await prisma.message.create({
       data: {
         content,
+        audioUrl,
         senderId,
         receiverId
       }
     })
+
+    console.log('Created message:', message)
 
     return message
   }

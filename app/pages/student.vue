@@ -143,6 +143,15 @@
           </button>
         </div>
 
+        <div v-if="showAppointmentSuccess" class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+          <div class="flex items-center gap-2 text-green-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            <span class="font-medium">Agendamento enviado com sucesso! Aguarde a confirmação do professor.</span>
+          </div>
+        </div>
+
         <div v-if="showAppointmentForm" class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">Solicitar Nova Aula</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,7 +274,27 @@
                       msg.senderId === user?.id ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-900'
                     ]"
                   >
-                    <p>{{ msg.content }}</p>
+                    <div v-if="msg.audioUrl" class="mb-1">
+                      <div class="flex items-center gap-2 bg-black/20 rounded-full px-2 py-1 w-fit">
+                        <button @click.stop="toggleAudio($event)" class="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center hover:bg-white/40 transition-colors" :data-audio="msg.audioUrl">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                          </svg>
+                        </button>
+                        <div class="w-24">
+                          <div class="h-1 bg-white/30 rounded-full overflow-hidden">
+                            <div class="audio-progress h-full bg-white rounded-full" style="width: 0%" :data-audio="msg.audioUrl"></div>
+                          </div>
+                        </div>
+                        <span class="text-xs text-white/70 audio-duration" :data-audio="msg.audioUrl">0:00</span>
+                        <a :href="msg.audioUrl" download @click.stop class="w-6 h-6 flex items-center justify-center text-white/60 hover:text-white/90">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                          </svg>
+                        </a>
+                      </div>
+                    </div>
+                    <p v-if="msg.content">{{ msg.content }}</p>
                     <div class="flex items-center gap-2 mt-1">
                       <span v-if="msg.reaction" class="text-lg">{{ msg.reaction }}</span>
                       <p :class="['text-xs', msg.senderId === user?.id ? 'text-green-100' : 'text-gray-500']">{{ formatDate(msg.createdAt) }}</p>
@@ -285,9 +314,15 @@
             </div>
             <div class="p-4 border-t border-gray-200">
               <div class="flex gap-2">
+                <button @click="toggleRecording" :class="['p-2 rounded-lg transition-colors', isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 text-gray-600 hover:bg-gray-300']">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </button>
                 <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Digite sua mensagem..." class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500" />
                 <button @click="sendMessage" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Enviar</button>
               </div>
+              <p v-if="isRecording" class="text-sm text-red-500 mt-2 animate-pulse">Gravando áudio...</p>
             </div>
           </div>
           <div v-else class="flex-1 flex items-center justify-center text-gray-500 p-8">
@@ -361,8 +396,12 @@ const materials = ref([])
 const chatMessages = ref([])
 const newMessage = ref('')
 const selectedMessage = ref(null)
+const isRecording = ref(false)
+const mediaRecorder = ref(null)
+const audioChunks = ref([])
 const emojis = ['👍', '❤️', '😄', '😢', '😮', '🙏']
 const showAppointmentForm = ref(false)
+const showAppointmentSuccess = ref(false)
 const newAppointment = ref({ title: '', description: '', dateTime: '', duration: 60 })
 const editProfile = ref({ name: '', email: '', password: '', birthDate: '', nationality: '' })
 const showPassword = ref(false)
@@ -430,18 +469,29 @@ const saveProfile = async () => {
 }
 
 const createAppointment = async () => {
-  if (!newAppointment.value.title || !newAppointment.value.dateTime || !teacher.value) return
-  await $fetch('/api/my-appointments', {
-    method: 'POST',
-    body: {
-      ...newAppointment.value,
-      userId: user.value.id,
-      teacherId: teacher.value.id
-    }
-  })
-  newAppointment.value = { title: '', description: '', dateTime: '', duration: 60 }
-  showAppointmentForm.value = false
-  await loadData()
+  if (!newAppointment.value.title || !newAppointment.value.dateTime || !teacher.value) {
+    alert('Por favor, preencha o título e a data/hora')
+    return
+  }
+  
+  try {
+    await $fetch('/api/my-appointments', {
+      method: 'POST',
+      body: {
+        ...newAppointment.value,
+        userId: user.value.id,
+        teacherId: teacher.value.id
+      }
+    })
+    newAppointment.value = { title: '', description: '', dateTime: '', duration: 60 }
+    showAppointmentForm.value = false
+    showAppointmentSuccess.value = true
+    setTimeout(() => { showAppointmentSuccess.value = false }, 5000)
+    await loadData()
+  } catch (error) {
+    console.error('Erro ao criar agendamento:', error)
+    alert('Erro ao enviar solicitação. Tente novamente.')
+  }
 }
 
 const toggleMessageMenu = (msg) => {
@@ -470,18 +520,133 @@ const deleteMessage = async (id) => {
   await loadChat()
 }
 
-const sendMessage = async () => {
-  if (!newMessage.value.trim() || !teacher.value) return
+const sendMessage = async (audioUrl = null) => {
+  if (!newMessage.value.trim() && !audioUrl) return
+  if (!teacher.value) return
+  
+  const payload = {
+    content: newMessage.value,
+    audioUrl,
+    senderId: user.value.id,
+    receiverId: teacher.value.id
+  }
+  console.log('Sending message:', payload)
+  
   await $fetch('/api/messages', {
     method: 'POST',
-    body: {
-      content: newMessage.value,
-      senderId: user.value.id,
-      receiverId: teacher.value.id
-    }
+    body: payload
   })
   newMessage.value = ''
   await loadChat()
+}
+
+const toggleRecording = async () => {
+  if (isRecording.value) {
+    mediaRecorder.value.stop()
+    isRecording.value = false
+  } else {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRecorder.value = new MediaRecorder(stream)
+      audioChunks.value = []
+      
+      mediaRecorder.value.ondataavailable = (e) => {
+        audioChunks.value.push(e.data)
+      }
+      
+      mediaRecorder.value.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.value, { type: 'audio/webm' })
+        const formData = new FormData()
+        formData.append('file', audioBlob, 'audio.webm')
+        
+        const res = await $fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (res.success) {
+          await sendMessage(res.url)
+        }
+        
+        stream.getTracks().forEach(track => track.stop())
+      }
+      
+      mediaRecorder.value.start()
+      isRecording.value = true
+    } catch (err) {
+      console.error('Erro ao acessar microfone:', err)
+      alert('Não foi possível acessar o microfone')
+    }
+  }
+}
+
+const activeAudio = ref(null)
+
+const toggleAudio = (event) => {
+  const audioUrl = event.currentTarget.getAttribute('data-audio')
+  const button = event.currentTarget
+  const container = event.currentTarget.closest('.mb-1')
+  
+  if (!activeAudio.value) {
+    const audio = new Audio(audioUrl)
+    activeAudio.value = { audio, button, container, url: audioUrl }
+    
+    audio.addEventListener('loadedmetadata', () => {
+      const durationSpan = container.querySelector('.audio-duration')
+      const minutes = Math.floor(audio.duration / 60)
+      const seconds = Math.floor(audio.duration % 60)
+      durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`
+    })
+    
+    audio.addEventListener('timeupdate', () => {
+      const progress = container.querySelector('.audio-progress')
+      const percent = (audio.currentTime / audio.duration) * 100
+      progress.style.width = `${percent}%`
+    })
+    
+    audio.addEventListener('ended', () => {
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+      container.querySelector('.audio-progress').style.width = '0%'
+    })
+    
+    audio.play()
+    button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+  } else if (activeAudio.value.url === audioUrl) {
+    const audio = activeAudio.value.audio
+    if (audio.paused) {
+      audio.play()
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+    } else {
+      audio.pause()
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+    }
+  } else {
+    activeAudio.value.audio.pause()
+    
+    const audio = new Audio(audioUrl)
+    activeAudio.value = { audio, button, container, url: audioUrl }
+    
+    audio.addEventListener('loadedmetadata', () => {
+      const durationSpan = container.querySelector('.audio-duration')
+      const minutes = Math.floor(audio.duration / 60)
+      const seconds = Math.floor(audio.duration % 60)
+      durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`
+    })
+    
+    audio.addEventListener('timeupdate', () => {
+      const progress = container.querySelector('.audio-progress')
+      const percent = (audio.currentTime / audio.duration) * 100
+      progress.style.width = `${percent}%`
+    })
+    
+    audio.addEventListener('ended', () => {
+      button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>'
+      container.querySelector('.audio-progress').style.width = '0%'
+    })
+    
+    audio.play()
+    button.innerHTML = '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>'
+  }
 }
 
 const handleLogout = async () => {
