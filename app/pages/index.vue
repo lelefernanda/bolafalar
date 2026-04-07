@@ -45,14 +45,14 @@
             href="#"
             @click.prevent="isRegistering = true"
             class="text-green-600 hover:text-green-700 font-medium"
-            >Criar conta</a
+            >Criar contaa</a
           >
         </p>
       </div>
 
       <div v-else>
         <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
-          Criar Conta
+          Criar Contaa
         </h2>
         <form @submit.prevent="handleRegister" class="space-y-4">
           <div>
