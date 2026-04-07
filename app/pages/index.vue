@@ -1,11 +1,17 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-yellow-400 to-green-500 flex items-center justify-center">
+  <div
+    class="min-h-screen bg-gradient-to-b from-yellow-400 to-green-500 flex items-center justify-center"
+  >
     <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
       <div v-if="!isRegistering">
-        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Login</h2>
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
+          Loginn
+        </h2>
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Email</label
+            >
             <input
               v-model="loginForm.email"
               type="email"
@@ -14,7 +20,9 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Senha</label
+            >
             <input
               v-model="loginForm.password"
               type="password"
@@ -28,20 +36,29 @@
             :disabled="loading"
             class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
           >
-            {{ loading ? 'Entrando...' : 'Entrar' }}
+            {{ loading ? "Entrando..." : "Entrar" }}
           </button>
         </form>
         <p class="text-center text-sm text-gray-600 mt-4">
           Não tem uma conta?
-          <a href="#" @click.prevent="isRegistering = true" class="text-green-600 hover:text-green-700 font-medium">Criar conta</a>
+          <a
+            href="#"
+            @click.prevent="isRegistering = true"
+            class="text-green-600 hover:text-green-700 font-medium"
+            >Criar conta</a
+          >
         </p>
       </div>
 
       <div v-else>
-        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Criar Conta</h2>
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
+          Criar Conta
+        </h2>
         <form @submit.prevent="handleRegister" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Nome</label
+            >
             <input
               v-model="registerForm.name"
               type="text"
@@ -50,7 +67,9 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Data de Nascimento</label
+            >
             <input
               v-model="registerForm.birthDate"
               type="date"
@@ -58,7 +77,9 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nacionalidade</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Nacionalidade</label
+            >
             <select
               v-model="registerForm.nationality"
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
@@ -299,7 +320,9 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Email</label
+            >
             <input
               v-model="registerForm.email"
               type="email"
@@ -308,7 +331,9 @@
             />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Senha</label
+            >
             <input
               v-model="registerForm.password"
               type="password"
@@ -323,12 +348,17 @@
             :disabled="loading"
             class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
           >
-            {{ loading ? 'Criando...' : 'Criar Conta' }}
+            {{ loading ? "Criando..." : "Criar Conta" }}
           </button>
         </form>
         <p class="text-center text-sm text-gray-600 mt-4">
           Já tem uma conta?
-          <a href="#" @click.prevent="isRegistering = false" class="text-green-600 hover:text-green-700 font-medium">Fazer login</a>
+          <a
+            href="#"
+            @click.prevent="isRegistering = false"
+            class="text-green-600 hover:text-green-700 font-medium"
+            >Fazer login</a
+          >
         </p>
       </div>
     </div>
@@ -336,67 +366,73 @@
 </template>
 
 <script setup>
-const isRegistering = ref(false)
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
+const isRegistering = ref(false);
+const loading = ref(false);
+const error = ref("");
+const success = ref("");
 
 const loginForm = ref({
-  email: '',
-  password: ''
-})
+  email: "",
+  password: "",
+});
 
 const registerForm = ref({
-  name: '',
-  birthDate: '',
-  nationality: '',
-  email: '',
-  password: ''
-})
+  name: "",
+  birthDate: "",
+  nationality: "",
+  email: "",
+  password: "",
+});
 
 const handleLogin = async () => {
-  error.value = ''
-  loading.value = true
+  error.value = "";
+  loading.value = true;
 
   try {
-    const res = await $fetch('/api/login', {
-      method: 'POST',
-      body: loginForm.value
-    })
+    const res = await $fetch("/api/login", {
+      method: "POST",
+      body: loginForm.value,
+    });
     if (res.success) {
-      localStorage.setItem('user', JSON.stringify(res.user))
-      if (res.user.role === 'teacher') {
-        await navigateTo('/teacher')
+      localStorage.setItem("user", JSON.stringify(res.user));
+      if (res.user.role === "teacher") {
+        await navigateTo("/teacher");
       } else {
-        await navigateTo('/student')
+        await navigateTo("/student");
       }
     }
   } catch (err) {
-    error.value = err.data?.message || err.message || 'Erro ao fazer login'
+    error.value = err.data?.message || err.message || "Erro ao fazer login";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleRegister = async () => {
-  error.value = ''
-  success.value = ''
-  loading.value = true
+  error.value = "";
+  success.value = "";
+  loading.value = true;
 
   try {
-    await $fetch('/api/register', {
-      method: 'POST',
-      body: registerForm.value
-    })
-    success.value = 'Conta criada com sucesso!'
-    registerForm.value = { name: '', birthDate: '', nationality: '', email: '', password: '' }
+    await $fetch("/api/register", {
+      method: "POST",
+      body: registerForm.value,
+    });
+    success.value = "Conta criada com sucesso!";
+    registerForm.value = {
+      name: "",
+      birthDate: "",
+      nationality: "",
+      email: "",
+      password: "",
+    };
     setTimeout(() => {
-      isRegistering.value = false
-    }, 1500)
+      isRegistering.value = false;
+    }, 1500);
   } catch (err) {
-    error.value = err.data?.message || 'Erro ao criar conta'
+    error.value = err.data?.message || "Erro ao criar conta";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 </script>
