@@ -783,31 +783,56 @@ const toggleAudio = (event) => {
 }
 
 const createResource = async () => {
-  if (!newResource.value.title) return
+  if (!newResource.value.title) {
+    alert('Por favor, insira um título')
+    return
+  }
+  
+  console.log('Creating resource with:', newResource.value)
   
   let resourceData = {
     ...newResource.value,
-    teacherId: user.value.id
+    teacherId: parseInt(user.value.id),
+    studentUserId: newResource.value.studentUserId ? parseInt(newResource.value.studentUserId) : null
   }
   
   if (selectedFile.value) {
+    console.log('Uploading file:', selectedFile.value.name)
     const formData = new FormData()
     formData.append('file', selectedFile.value)
     
-    const uploadRes = await $fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    })
-    
-    if (uploadRes.success) {
-      resourceData.url = uploadRes.url
+    try {
+      const uploadRes = await $fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      })
+      
+      console.log('Upload response:', uploadRes)
+      
+      if (uploadRes.success) {
+        resourceData.url = uploadRes.url
+      }
+    } catch (err) {
+      console.error('Upload error:', err)
+      alert('Erro ao fazer upload do arquivo')
+      return
     }
   }
   
-  await $fetch('/api/resources', {
-    method: 'POST',
-    body: resourceData
-  })
+  console.log('Sending resource data:', resourceData)
+  
+  try {
+    await $fetch('/api/resources', {
+      method: 'POST',
+      body: resourceData
+    })
+    
+    alert('Material enviado com sucesso!')
+  } catch (err) {
+    console.error('Resource creation error:', err)
+    alert('Erro ao criar material')
+    return
+  }
   
   newResource.value = { title: '', description: '', type: 'pdf', url: '', studentUserId: '' }
   selectedFile.value = null

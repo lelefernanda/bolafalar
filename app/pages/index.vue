@@ -5,7 +5,7 @@
     <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
       <div v-if="!isRegistering">
         <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
-          Loginn
+          Login
         </h2>
         <form @submit.prevent="handleLogin" class="space-y-4">
           <div>

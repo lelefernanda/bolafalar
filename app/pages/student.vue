@@ -559,13 +559,23 @@ const toggleRecording = async () => {
         const formData = new FormData()
         formData.append('file', audioBlob, 'audio.webm')
         
-        const res = await $fetch('/api/upload', {
-          method: 'POST',
-          body: formData
-        })
-        
-        if (res.success) {
-          await sendMessage(res.url)
+        try {
+          const res = await $fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          })
+          
+          console.log('Upload response:', res)
+          
+          if (res.success) {
+            await sendMessage(res.url)
+          } else {
+            console.error('Upload failed:', res)
+            alert('Erro ao enviar áudio')
+          }
+        } catch (err) {
+          console.error('Erro ao fazer upload:', err)
+          alert('Erro ao fazer upload do áudio')
         }
         
         stream.getTracks().forEach(track => track.stop())

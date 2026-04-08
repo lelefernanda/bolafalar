@@ -1,5 +1,6 @@
-import { writeFile } from 'fs/promises'
+import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
+import { existsSync } from 'fs'
 
 export default defineEventHandler(async (event) => {
   const form = await readMultipartFormData(event)
@@ -25,6 +26,11 @@ export default defineEventHandler(async (event) => {
   const safeName = `${timestamp}-${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`
   
   const uploadDir = join(process.cwd(), 'public', 'uploads')
+  
+  if (!existsSync(uploadDir)) {
+    await mkdir(uploadDir, { recursive: true })
+  }
+  
   const filePath = join(uploadDir, safeName)
   
   await writeFile(filePath, file.data)
