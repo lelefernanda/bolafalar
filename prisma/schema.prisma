@@ -81,6 +81,8 @@ model Message {
   id           Int      @id @default(autoincrement())
   content      String
   audioUrl     String?
+  mediaUrl     String?
+  mediaType    String?
   senderId     Int
   sender       User     @relation("SentMessages", fields: [senderId], references: [id])
   receiverId   Int

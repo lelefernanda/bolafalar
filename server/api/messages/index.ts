@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
 
   if (event.method === 'POST') {
     const body = await readBody(event)
-    let { content, audioUrl, senderId, receiverId } = body
+    let { content, audioUrl, mediaUrl, mediaType, senderId, receiverId } = body
 
     if (typeof audioUrl === 'object' && audioUrl !== null) {
       audioUrl = null
@@ -36,12 +36,26 @@ export default defineEventHandler(async (event) => {
       audioUrl = null
     }
 
-    console.log('Creating message with:', { content, audioUrl, senderId, receiverId })
+    if (typeof mediaUrl === 'object' && mediaUrl !== null) {
+      mediaUrl = null
+    }
+    
+    if (typeof mediaUrl === 'string') {
+      mediaUrl = mediaUrl
+    } else {
+      mediaUrl = null
+    }
+
+    mediaType = (mediaType && typeof mediaType === 'string') ? mediaType : null
+
+    console.log('Creating message with:', { content, audioUrl, mediaUrl, mediaType, senderId, receiverId })
 
     const message = await prisma.message.create({
       data: {
         content,
         audioUrl,
+        mediaUrl,
+        mediaType,
         senderId,
         receiverId
       }

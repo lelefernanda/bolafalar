@@ -294,6 +294,10 @@
                         </a>
                       </div>
                     </div>
+                    <div v-if="msg.mediaUrl" class="mb-1">
+                      <img v-if="msg.mediaType === 'image'" :src="msg.mediaUrl" class="max-w-full rounded-lg" @click="openMediaModal(msg.mediaUrl, msg.mediaType)" />
+                      <video v-else-if="msg.mediaType === 'video'" :src="msg.mediaUrl" controls class="max-w-full rounded-lg max-h-48" @click.stop></video>
+                    </div>
                     <p v-if="msg.content">{{ msg.content }}</p>
                     <div class="flex items-center gap-2 mt-1">
                       <span v-if="msg.reaction" class="text-lg">{{ msg.reaction }}</span>
@@ -314,6 +318,12 @@
             </div>
             <div class="p-4 border-t border-gray-200">
               <div class="flex gap-2">
+                <label class="p-2 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors cursor-pointer">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <input type="file" class="hidden" accept="image/*,video/*" @change="handleMediaSelect" />
+                </label>
                 <button @click="toggleRecording" :class="['p-2 rounded-lg transition-colors', isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 text-gray-600 hover:bg-gray-300']">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -323,6 +333,7 @@
                 <button @click="sendMessage" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Enviar</button>
               </div>
               <p v-if="isRecording" class="text-sm text-red-500 mt-2 animate-pulse">Gravando áudio...</p>
+              <p v-if="uploadingMedia" class="text-sm text-blue-500 mt-2">Enviando mídia...</p>
             </div>
           </div>
           <div v-else class="flex-1 flex items-center justify-center text-gray-500 p-8">
@@ -366,6 +377,16 @@
         </div>
       </div>
     </main>
+
+    <div v-if="mediaModal.open" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50" @click.self="mediaModal.open = false">
+      <button @click="mediaModal.open = false" class="absolute top-4 right-4 text-white hover:text-gray-300">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <img v-if="mediaModal.type === 'image'" :src="mediaModal.url" class="max-w-full max-h-full rounded-lg" />
+      <video v-else-if="mediaModal.type === 'video'" :src="mediaModal.url" controls class="max-w-full max-h-[80vh] rounded-lg" />
+    </div>
   </div>
 </template>
 
@@ -397,6 +418,12 @@ const chatMessages = ref([])
 const newMessage = ref('')
 const selectedMessage = ref(null)
 const isRecording = ref(false)
+const uploadingMedia = ref(false)
+const mediaModal = ref({ open: false, url: '', type: '' })
+
+const openMediaModal = (url, type) => {
+  mediaModal.value = { open: true, url, type }
+}
 const mediaRecorder = ref(null)
 const audioChunks = ref([])
 const emojis = ['👍', '❤️', '😄', '😢', '😮', '🙏']
@@ -455,6 +482,38 @@ const handlePhotoUpload = async (event) => {
     localStorage.setItem('user', JSON.stringify(user.value))
   }
   reader.readAsDataURL(file)
+}
+
+const handleMediaSelect = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  uploadingMedia.value = true
+  
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  try {
+    const res = await $fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    })
+    
+    if (res.success) {
+      if (file.type.startsWith('video/')) {
+        await sendMessage(null, res.url, 'video')
+      } else {
+        await sendMessage(null, res.url, 'image')
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao enviar mídia:', err)
+    const errorMsg = err.data?.data?.error || err.message || 'Erro ao enviar mídia'
+    alert(errorMsg)
+  } finally {
+    uploadingMedia.value = false
+    event.target.value = ''
+  }
 }
 
 const saveProfile = async () => {
@@ -520,13 +579,15 @@ const deleteMessage = async (id) => {
   await loadChat()
 }
 
-const sendMessage = async (audioUrl = null) => {
-  if (!newMessage.value.trim() && !audioUrl) return
+const sendMessage = async (audioUrl = null, mediaUrl = null, mediaType = null) => {
+  if (!newMessage.value.trim() && !audioUrl && !mediaUrl) return
   if (!teacher.value) return
   
   const payload = {
     content: newMessage.value,
     audioUrl,
+    mediaUrl,
+    mediaType,
     senderId: user.value.id,
     receiverId: teacher.value.id
   }
